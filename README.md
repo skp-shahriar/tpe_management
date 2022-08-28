@@ -3,7 +3,13 @@
 
 - 🔭 I’m currently working on [Third-party employee management](https://github.com/skp-shahriar/tpe_management.git)
 
-- 📄 **I can bring your ideas to computer screen. I have completed IsDB-BISEW IT Scholarship Programme in Web Application Development with PHP and Frameworks.**
+- 📄 **I can bring your ideas to computer screen with a passion for
+developing scalable web applications and working across the full
+stack. I’m looking forward to join a team of genius and generous
+members to continue to grow my skill set and help people to make
+their life easier and smarter with solutions. I’m always curious
+about learning new technology that can make my work easier.
+**
 
 <h3 align="left">Connect with me:</h3>
 <p align="left">
