@@ -51,7 +51,7 @@ class Employee extends Model
         'created_by',
         'updated_by',
     ];
-
+    // Mutators
     public function setStartDateAttribute($value)
     {
         $this->attributes['start_date']=Carbon::createFromFormat('d/m/Y',$value)->format('Y-m-d');
@@ -69,7 +69,7 @@ class Employee extends Model
         $this->attributes['joining_date']=Carbon::createFromFormat('d/m/Y',$value)->format('Y-m-d');
     }
     
-    
+    // Accessors
     public function getStartDateAttribute()
     {
         if ($this->attributes['start_date']!=null) {

@@ -14,41 +14,39 @@
 <div class="container">
     <div class="row justify-content-center">
         <h3 class="text-center">Add Financial Facility</h3>
-        <form class="row g-3 needs-validation add_financial_facility_form" method="POST">
+        <form class="row g-3 needs-validation add_financial_facility_form" method="POST" novalidate>
             <div class="col-md-6 form-floating">
-                <select id="facility_type" name="facility_type" class="form-select financial_facility">
-                    <option selected disabled>Choose Facility Type</option>
+                <select id="facility_type" name="facility_type" class="form-select financial_facility" required>
+                    <option value="" selected disabled>Choose Facility Type</option>
                     @foreach ($facility_type as $val)
                         <option value="{{$val->id}}">{{$val->option_value}}</option>
                     @endforeach
                 </select>
-                <label for="facility_type" >Select Facility Type</label>
-                <div class="invalid-feedback error_msg facility_type_err"></div>
+                <label for="facility_type" >Select Facility Type *</label>
+                <div class="invalid-feedback error_msg facility_type_err">Facility Type Field is required!</div>
             </div>
             <div class="col-md-6 form-floating">
-                <select id="process_type" name="process_type" class="form-select financial_facility">
-                    <option selected disabled>Choose Process Type</option>
+                <select id="process_type" name="process_type" class="form-select financial_facility" required>
+                    <option value="" selected disabled>Choose Process Type</option>
                         <option value="all">All Employee</option>
                         <option value="vendor">Selective Vendor</option>
                         <option value="employee">Selective Employees</option>
                         <option value="branch">Selective Branches</option>
                         <option value="department">Selective Department</option>
                 </select>
-                <label for="process_type" >Select Process Type</label>
-                <div class="invalid-feedback error_msg process_type_err"></div>
+                <label for="process_type" >Select Process Type *</label>
+                <div class="invalid-feedback error_msg process_type_err">Process Type field is required!</div>
             </div>
             <div class="col-md-6 form-floating selective_value">
-                <select id="selective_value" name="selective_value[]" class="form-select financial_facility" multiple="multiple">
-                    
-                </select>
-                <label for="selective_value" >Select Multiple</label>
+                <select id="selective_value" name="selective_value[]" class="form-select financial_facility" multiple="multiple" required> </select>
+                <label for="selective_value" >Select Multiple *</label>
                 <div class="invalid-feedback error_msg selective_value_err"></div>
             </div>
 
             <div class="col-md-6 form-floating">
-                <input type="text" class="form-control financial_facility" id="applicable_month" name="applicable_month" placeholder=" ">
-                <label for="applicable_month" >Enter Applicable Month</label>
-                    <div class="invalid-feedback error_msg applicable_month_err"></div>
+                <input type="text" class="form-control financial_facility" id="applicable_month" name="applicable_month" placeholder=" " required>
+                <label for="applicable_month" >Enter Applicable Month *</label>
+                    <div class="invalid-feedback error_msg applicable_month_err"> Applicable Month is required!</div>
             </div>
             <div class="col-md-6">
                 <div class="form-check">
@@ -59,23 +57,23 @@
                 </div>
             </div>
             <div class="col-md-6 form-floating end_month">
-                <input type="text" class="form-control financial_facility" id="end_month" name="end_month" placeholder=" ">
-                <label for="end_month" >Enter End Month</label>
-                    <div class="invalid-feedback error_msg end_month_err"></div>
+                <input type="text" class="form-control financial_facility" id="end_month" name="end_month" placeholder=" " >
+                <label for="end_month" >Enter End Month *</label>
+                    <div class="invalid-feedback error_msg end_month_err">End Month is required!</div>
             </div>
             <div class="col-md-6 form-floating">
-                <select id="amount_type" name="amount_type" class="form-select financial_facility">
-                    <option selected disabled>Choose Amount Type</option>
+                <select id="amount_type" name="amount_type" class="form-select financial_facility" required>
+                    <option value="" selected disabled>Choose Amount Type</option>
                         <option value="fixed">Fixed Amount</option>
                         <option value="percentage">Percentage Amount</option>
                 </select>
-                <label for="amount_type" >Select Amount Type</label>
-                <div class="invalid-feedback error_msg amount_type_err"></div>
+                <label for="amount_type" >Select Amount Type *</label>
+                <div class="invalid-feedback error_msg amount_type_err">Amount Type is required!</div>
             </div>
             <div class="col-md-6 form-floating">
-                <input type="number" class="form-control financial_facility" id="amount" name="amount" placeholder=" ">
-                <label for="amount" >Enter Amount</label>
-                    <div class="invalid-feedback error_msg amount_err"></div>
+                <input type="number" class="form-control financial_facility" id="amount" name="amount" placeholder=" " required>
+                <label for="amount" >Enter Amount *</label>
+                    <div class="invalid-feedback error_msg amount_err">Amount is required!</div>
             </div>
 
             <div class="col-md-6"></div>
@@ -144,14 +142,14 @@ $(document).ready(function () {
     $(document).on('change','#continue', function () {
         if ($('#continue').is(":checked")){
             $('.end_month').show();
+            $('#end_month').attr('required', 'ture');
         }else{
-            $('#end_month').val('');
+            $('#end_month').val('').removeAttr('required');
             $('.end_month').hide();
         }
     });
 
     $(document).on('click','.add_financial_facility_submit', function (e) {
-        
         e.preventDefault();
         $('.add_financial_facility_submit').attr('disabled',true).text('Sending Data...');
         var data={
@@ -193,7 +191,18 @@ $(document).ready(function () {
                         $('#'+key).addClass("is-invalid");
                     }
                     $('.add_financial_facility_submit').attr('disabled',false).text('Add Facility');
-                }else{
+                }else if (response.status==409) {
+                    $(".error_msg").removeClass("d-block");
+                    $(".error_msg").addClass("d-none");
+                    $(".financial_facility").removeClass('is-invalid');
+                    Swal.fire({
+                    icon: 'error',
+                    title: 'Duplicate Record Found!',
+                    text: response.message.toString(),
+                    })
+                    $('.add_financial_facility_submit').attr('disabled',false).text('Add Facility');
+                    $(".add_financial_facility").trigger("reset");
+                } else {
                     $(".error_msg").removeClass("d-block");
                     $(".error_msg").addClass("d-none");
                     $(".financial_facility").removeClass('is-invalid');

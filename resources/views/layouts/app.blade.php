@@ -43,8 +43,8 @@
             
             @guest
                 @if (Route::has('login'))
-                    <p class="mx-2 mt-2 fw-bold">Lorem, ipsum dolor sit amet consectetur adipisicing elit. Unde facilis nihil est, expedita atque assumenda vel odio architecto voluptates mollitia dicta totam ipsam maxime rerum iste veniam nemo ab repellat. Lorem ipsum dolor sit amet consectetur adipisicing elit. Eius ratione omnis corrupti! Quod vel natus quas maiores quam deserunt, ullam culpa animi sunt non ex facilis blanditiis ipsum iure ipsam. Lorem ipsum dolor sit amet consectetur adipisicing elit. Asperiores pariatur rerum corrupti atque aliquid autem eligendi optio mollitia dolor.</p>
-                    <p class="mx-2 fw-bold">Copyright © 2022 Bank Limited</p>
+                    <p class="mx-2 mt-2 fw-bold">The nation was just halfway of its age; the passion for history and heritage and an obsession for faster pace exerted a powerful force for change in the business world. Many budding hopes grew as a choice of the new generation in the shadows of banking reformation of the Nineties. Dhaka Bank is such a dream that spread in profusion modern banking prospects with deep attachment to its community and culture. A host of visionary entrepreneur friends inspired by a futurist leader set forth the fight of this great corporate voyage that echoed the speed of technology on the inner soul of Bangladesh.</p>
+                    <p class="mx-2 fw-bold">Copyright © 2022 Dhaka Bank Limited</p>
                 @endif
             @else
             <ul class="list-unstyled ms-2 mt-4 ps-0 w-75">
@@ -141,11 +141,71 @@
     </div>
 
     <!-- Scripts -->
+    @stack('scripts')
     @yield('script')
     <script type="text/javascript" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/fixedheader/3.2.3/js/dataTables.fixedHeader.min.js"></script>
     <script src="https://cdn.datatables.net/responsive/2.3.0/js/dataTables.responsive.min.js"></script>
     <script src="{{ asset('js/script.js') }}"></script>
+    <script>
+      $(document).on('click', ".active_inactive_btn", function() {
+          // var status;
+          // if ($(this).is(':checked')) {
+          //     alert('checked');
+          //     status = 7;                    
+          // }else{
+          //     status = -7;                   
+          // }  
+
+          var id = $(this).val();
+          var status = $(this).attr('status');
+          var field_id = $(this).attr('id');
+          $.ajax({
+              type: "GET",
+              url: "{{ route('active.inactive') }}",
+              dataType: "json",
+              data: {
+                  id: id,
+                  status: $(this).attr('status'),
+                  table: $(this).attr('table')
+              },
+              success: function(response) {
+                  if (response.status == 'success') {
+                      Toast.fire({
+                          icon: 'success',
+                          title: response.message
+                      })
+                      $("#" + field_id).attr('status', response.changed_value);
+                      if (response.changed_value == -7) {
+                          $('#edit_btn_' + field_id).prop('disabled', true);
+                      } else if (response.changed_value == 7) {
+                          $('#edit_btn_' + field_id).prop('disabled', false);
+                      }
+                  } else if (response.status == 'not_success') {
+                      var $checkbox = $("#" + field_id);
+                      ($checkbox.prop("checked") == true) ? $checkbox.prop("checked", false):
+                          $checkbox.prop("checked", true);
+                      Swal.fire({
+                          icon: 'error',
+                          title: 'Oops...',
+                          text: response.message,
+                      });
+                      return false;
+                  }
+              },
+              error: function(xhr, status, error) {
+                  // handle error
+                  Swal.fire({
+                      icon: 'error',
+                      title: 'Oops...',
+                      text: error,
+                  });
+                  return false;
+              }
+          })
+
+      });
+  </script>
     
 </body>
 

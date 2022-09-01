@@ -4,13 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-// use Laravel\Scout\Searchable;
 
 class Option extends Model
 {
     use HasFactory;
 
-    public $fillable = [
+    public $fillable=[
         'group_name',
         'parent_id',
         'option_value',
@@ -20,8 +19,6 @@ class Option extends Model
         'created_by',
         'updated_by',
     ];
-
-
 
     public function region()
     {
@@ -43,6 +40,8 @@ class Option extends Model
     {
         return $this->hasMany(Employee::class);
     }
-   
-
+    public function type()
+    {
+        return $this->hasMany(Employee::class);
+    }
 }

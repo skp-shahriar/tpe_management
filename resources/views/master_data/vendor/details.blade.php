@@ -8,12 +8,6 @@
         <p>"{{$vendor->vendor_name}}" - Owner</p>
     </div>
     <div class="col-md-6">
-        
-        <table class="mt-3 table table-borderless">
-            <tbody>
-                
-            </tbody>
-        </table>
     </div>
     <div class="col-md-2">
         <a href="{{route('vendor.index')}}" class="btn btn-success float-end"><i class="fa-solid fa-circle-arrow-left"></i> View All Vendor</a>

@@ -2,30 +2,77 @@
 
 namespace App\Http\Controllers;
 
+use App\lib\Webspice;
 use App\Models\Branch;
 use App\Models\Option;
 use App\Models\Vendor;
 use App\Models\Employee;
-use App\Models\EmployeeHistory;
 use Illuminate\Http\Request;
+use App\Exports\EmployeeExport;
+use App\Models\EmployeeHistory;
 use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Validator;
 // use App\Lib\Webspice;
 
 class EmployeeController extends Controller
 {
+    function __construct()
+    {
+        $this->table = 'employees';
+    }
     /**
      * Display a listing of the resource.
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
+        $startTime = microtime(true);
+        $query = Employee::orderBy('created_at', 'desc');
+        if ($request->search_branch != null) {
+            $query->where('branch_id', $request->search_branch);
+        }
+        if ($request->search_vendor != null) {
+            $query->where('vendor_id', $request->search_vendor);
+        }
+        if ($request->search_status != null) {
+            $query->where('status', $request->search_status);
+        }
+        $searchText = $request->search_text;
+        if ($searchText != null) {
+            // $query = $query->search($request->search_text); // search by value
+            $query->where(function ($query) use ($searchText) {
+                $query->where('employee_id', 'LIKE', '%' . $searchText . '%')
+                    ->orWhere('employee_name', 'LIKE', '%' . $searchText . '%')
+                    ->orWhere('employee_phone', 'LIKE', '%' . $searchText . '%')
+                    ->orWhere('supervisor_name', 'LIKE', '%' . $searchText . '%');
+            });
+            // $query->whereLike(['branch_code', 'branch_name', 'branch_type', 'address'], $searchText);
+        }
+        if ($request->submit_btn == 'export') {
+            return Excel::download(new EmployeeExport($query->get()->makeHidden(['vendor_id','branch_id','region_id','division_id','department_id','designation_id','shift_id','type_id','end_date','grade_id','status','created_by','updated_by','created_at','updated_at'])), 'employee_list_' . time() . '.xlsx');
+        }
+
+        $employees = $query->paginate(8);
+
+
+        $endTime = microtime(true);
+        $executionTime = $endTime - $startTime;
+
         $vendor=Vendor::where([['status','=',7],['status','!=',-1]])->get();
         $branch=Branch::where([['status','=',7],['status','!=',-1]])->get();
-        $employee=employee::where([['status','=',7],['status','!=',-1]])->get();
         $option=Option::where([['status','=',7],['status','!=',-1]])->get();
-        return view('master_data.employee_list',compact('vendor','employee','option','branch'));
+
+        return view('master_data.employee.index', [
+            'employees' => $employees,
+            'vendor' => $vendor,
+            'option' => $option,
+            'branch' => $branch,
+            'execution_time' => $executionTime
+        ]);
+        
     }
 
     public function findEmployeeType(Request $request)
@@ -34,42 +81,6 @@ class EmployeeController extends Controller
         return response()->json($type);
     }
 
-    public function fetchEmployeeTable()
-    {
-        $employee=Employee::get();
-
-        foreach ($employee as $key => $val) {
-            
-            $vendor=Vendor::where('id',$val['vendor_id'])->pluck('vendor_name');
-            $employee[$key]['vendor_id']=$vendor;
-
-            $branch=Branch::where('id',$val['branch_id'])->pluck('branch_name');
-            $employee[$key]['branch_id']=$branch;
-            
-            $region=Option::where('id',$val['region_id'])->pluck('option_value');
-            $employee[$key]['region_id']=$region;
-
-            $division=Option::where('id',$val['division_id'])->pluck('option_value');
-            $employee[$key]['division_id']=$division;
-
-            $department=Option::where('id',$val['department_id'])->pluck('option_value');
-            $employee[$key]['department_id']=$department;
-
-            $designation=Option::where('id',$val['designation_id'])->pluck('option_value');
-            $employee[$key]['designation_id']=$designation;
-
-            $shift=Option::where('id',$val['shift_id'])->pluck('option_value');
-            $employee[$key]['shift_id']=$shift;
-
-            $type=Option::where('id',$val['type_id'])->pluck('option_value');
-            $employee[$key]['type_id']=$type;
-
-            $type=Option::where('id',$val['grade_id'])->pluck('option_value');
-            $employee[$key]['grade_id']=$type;
-        }
-
-        return response()->json($employee);
-    }
 
     /**
      * Show the form for creating a new resource.
@@ -82,7 +93,7 @@ class EmployeeController extends Controller
         $branch=Branch::where([['status','=',7],['status','!=',-1]])->get();
         $employee=employee::where([['status','=',7],['status','!=',-1]])->get();
         $option=Option::where([['status','=',7],['status','!=',-1]])->get();
-        return view('master_data.employee_create',compact('vendor','employee','option','branch'));
+        return view('master_data.employee.create',compact('vendor','employee','option','branch'));
     }
 
     /**
@@ -188,7 +199,7 @@ class EmployeeController extends Controller
             }
 
             $employee=Employee::create($data);
-            
+            Webspice::log($this->table, $employee->id, "Data Created successfully!");
             $emp_history=[
                 'employee_id'=> $employee->id,
                 'branch_id'=> $request->branch_id,
@@ -207,7 +218,8 @@ class EmployeeController extends Controller
                 $emp_history['start_date']=$request->joining_date;
             }
 
-            EmployeeHistory::create($emp_history);
+            $employee_history_created=EmployeeHistory::create($emp_history);
+            Webspice::log('employee_histories', $employee_history_created->id, "Data Created successfully!");
             
             return response()->json([
                     'status'=>200,
@@ -224,26 +236,9 @@ class EmployeeController extends Controller
      */
     public function show($id)
     {
-        //
-    }
-
-    public function statusSwitch(Request $request)
-    {
-        if ($request->status=='active') {
-            Employee::where('id', $request->id)->update(['status' => 7]);
-
-            return response()->json([
-                'status'=>'active',
-                'message'=>'Employee status changed to Active',
-            ]);
-        }else{
-            Employee::where('id', $request->id)->update(['status' => -7]);
-
-            return response()->json([
-                'status'=>'inactive',
-                'message'=>'Employee status changed to Inactive',
-            ]);
-        }
+        $id = Crypt::decryptString($id);
+        $employee=Employee::find($id);
+        return view('master_data.employee.details', compact('employee'));
     }
 
     /**
@@ -254,6 +249,7 @@ class EmployeeController extends Controller
      */
     public function edit($id)
     {
+        $id = Crypt::decryptString($id);
         $employee=Employee::find($id);  
         return response()->json($employee);
     }
@@ -267,6 +263,7 @@ class EmployeeController extends Controller
      */
     public function update(Request $request, $id)
     {
+        $id = Crypt::decryptString($id);
         $rule_list=[
             'employee_id' => 'required|numeric|unique:employees,employee_id,'.$id,
             'employee_name' => 'required',
@@ -360,7 +357,7 @@ class EmployeeController extends Controller
                 $data['start_date']=$request->joining_date;
             }
 
-            Employee::find($id)->update($data);
+            
 
             $emp_history=[
                 'employee_id'=> $id,
@@ -383,10 +380,23 @@ class EmployeeController extends Controller
 
             EmployeeHistory::find($emp_hs_id->id)->update($emp_history);
 
-            return response()->json([
+            $updateOk = false;
+            try {               
+                Employee::find($id)->update($data);
+                $updateOk = true;
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Do whatever you need if the query failed to execute
+                $updateOk = false;
+                return response()->json(['error' => 'SORRY! Something went wrong!']);
+            }
+            if ($updateOk) {
+                Webspice::log($this->table, $id, "Data updated successfully!");
+
+                return response()->json([
                     'status'=>200,
                     'message'=> 'Employee Edited Successfully!'
             ]);
+            }
         }
     }
 
@@ -398,19 +408,30 @@ class EmployeeController extends Controller
      */
     public function destroy($id)
     {
-        Employee::where('id', $id)->update(['status' => -1]);
-
-        return response()->json([
-            'status'=>200,
-            'message'=>'The Employee has been removed!',
-        ]);
+        $id = Crypt::decryptString($id);
+        $softDelOk = false;
+        try {
+            Employee::where('id', $id)->update(['status' => -1]);
+            $softDelOk = true;
+        } catch (\Illuminate\Database\QueryException $e) {
+            $softDelOk = false;
+            return response()->json(['error' => 'SORRY! Something went wrong!']);
+        }
+        if ($softDelOk) {
+            // log
+            Webspice::log($this->table, $id, "Data soft-deleted successfully!");
+            return response()->json([
+                'status'=>200,
+                'message'=>'The Employee has been removed!',
+            ]);
+        }
     }
 
 
     public function employeeAction()
     {
         $employee=Employee::select('id','employee_id','employee_name')->get();
-        return view('master_data.employee_action',compact('employee'));
+        return view('master_data.employee.action',compact('employee'));
     }
 
     public function currentValue(Request $request)

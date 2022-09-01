@@ -34,22 +34,22 @@ class LayoutServiceProvider extends ServiceProvider
     {
         if (isset(Auth::user()->role_id)) {
             $role_id=Auth::user()->role_id;
-        $permissions=Role::find($role_id)->permission_name;
+            $permissions=Role::find($role_id)->permission_name;
         if (!empty($permissions)) {
             $menu_permission=explode(',',$permissions);
         
-            $get_permission=permission::whereIn('permission_name',$menu_permission)->where(['is_menu'=>'yes','status'=>7]) ->orderBy('serial', 'asc')->get();
+            $get_permission=permission::whereIn('permission_name',$menu_permission)->where(['is_menu'=>'yes','status'=>7])->orderBy('serial', 'asc')->get();
 
             foreach ($get_permission as $key => $value) {
                 if ($value->parent_id==0) {
-                    $sub_menu_list=permission::whereIn('permission_name',$menu_permission)->where('parent_id',$value->id)->get();
+                    $sub_menu_list=permission::whereIn('permission_name',$menu_permission)->where('parent_id',$value->id)->where(['is_menu'=>'yes','status'=>7])->get();
 
                     if ($sub_menu_list->count()) {
                         foreach ($sub_menu_list as $smk => $smv) {
-                            $sub_menu_II=permission::whereIn('permission_name',$menu_permission)->where('parent_id',$smv->id)->get();
+                            $sub_menu_II=permission::whereIn('permission_name',$menu_permission)->where('parent_id',$smv->id)->where(['is_menu'=>'yes','status'=>7])->get();
                             if ($sub_menu_II->count()) {
                                 foreach ($sub_menu_II as $smkII => $smvII) {
-                                    $sub_menu_III=permission::whereIn('permission_name',$menu_permission)->where('parent_id',$smvII->id)->get();
+                                    $sub_menu_III=permission::whereIn('permission_name',$menu_permission)->where('parent_id',$smvII->id)->where(['is_menu'=>'yes','status'=>7])->get();
                                     if ($sub_menu_III->count()) {
                                         $sub_menu_II[$smkII]->{'sub_menu_III'}=$sub_menu_III;
                                     }

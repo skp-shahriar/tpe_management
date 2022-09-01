@@ -2,28 +2,65 @@
 
 namespace App\Http\Controllers;
 
+use App\lib\Webspice;
 use App\Models\Vendor;
 use Illuminate\Http\Request;
+use App\Exports\VendorExport;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Validator;
 
 class VendorController extends Controller
 {
+    function __construct()
+    {
+        $this->table = 'vendors';
+    }
+
     /**
      * Display a listing of the resource.
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
-        return view('master_data.vendor_list');
-    }
+        $startTime = microtime(true);
+        $query = Vendor::orderBy('created_at', 'desc');
+        // $export_query=Vendor::select();
+        // if ($request->search_type != null) {
+        //     $query->where('type', $request->search_type);
+        // }
+        if ($request->search_status != null) {
+            $query->where('status', $request->search_status);
+        }
+        $searchText = $request->search_text;
+        if ($searchText != null) {
+            // $query = $query->search($request->search_text); // search by value
+            $query->where(function ($query) use ($searchText) {
+                $query->where('vendor_name', 'LIKE', '%' . $searchText . '%')
+                    ->orWhere('mobile_no', 'LIKE', '%' . $searchText . '%')
+                    ->orWhere('email', 'LIKE', '%' . $searchText . '%')
+                    ->orWhere('reference_no', 'LIKE', '%' . $searchText . '%');
+            });
+            // $query->whereLike(['branch_code', 'branch_name', 'branch_type', 'address'], $searchText);
+        }
+        if ($request->submit_btn == 'export') {
+            return Excel::download(new VendorExport($query->get()->makeHidden(['owner_photo','agreement_attachment','status','created_by','updated_by','created_at','updated_at'])), 'vendor_list_' . time() . '.xlsx');
+        }
 
-    public function fetchVendorTable()
-    {
-        $vendor=Vendor::get();
-        return response()->json($vendor);
+        $vendors = $query->paginate(8);
+
+
+        $endTime = microtime(true);
+        $executionTime = $endTime - $startTime;
+
+
+        return view('master_data.vendor.index', [
+            'vendors' => $vendors,
+            'execution_time' => $executionTime
+        ]);
     }
 
     /**
@@ -33,7 +70,7 @@ class VendorController extends Controller
      */
     public function create()
     {
-        return view('master_data.vendor_create');
+        return view('master_data.vendor.create');
     }
 
     /**
@@ -90,7 +127,8 @@ class VendorController extends Controller
                 'status'=>7,
                 'created_by'=> Auth::user()->id,
             ];
-            Vendor::create($data);
+            $vendor_created=Vendor::create($data);
+            Webspice::log($this->table, $vendor_created->id, "Data Created successfully!");
             return response()->json([
                     'status'=>200,
                     'message'=> 'Vendor Added Successfully!'
@@ -106,27 +144,9 @@ class VendorController extends Controller
      */
     public function show($id)
     {
+        $id = Crypt::decryptString($id);
         $vendor=Vendor::find($id);
-        return view('master_data.vendor_details',compact('vendor'));
-    }
-
-    public function statusSwitch(Request $request)
-    {
-        if ($request->status=='active') {
-            Vendor::where('id', $request->id)->update(['status' => 7]);
-
-            return response()->json([
-                'status'=>'active',
-                'message'=>'Vendor status changed to Active',
-            ]);
-        }else{
-            Vendor::where('id', $request->id)->update(['status' => -7]);
-
-            return response()->json([
-                'status'=>'inactive',
-                'message'=>'Vendor status changed to Inactive',
-            ]);
-        }
+        return view('master_data.vendor.details',compact('vendor'));
     }
 
     /**
@@ -137,6 +157,7 @@ class VendorController extends Controller
      */
     public function edit($id)
     {
+        $id = Crypt::decryptString($id);
         $vendor=Vendor::find($id);  
         return response()->json($vendor);
     }
@@ -150,6 +171,7 @@ class VendorController extends Controller
      */
     public function update(Request $request, $id)
     {
+        $id = Crypt::decryptString($id);
         $validator= Validator::make($request->all(),[
             'vendor_name' => 'required|unique:vendors,vendor_name,'.$id,
             'owner_name' => 'required',
@@ -204,11 +226,24 @@ class VendorController extends Controller
                 File::delete(public_path($del));
             }
 
-            Vendor::find($id)->update($data);
-            return response()->json([
+            $updateOk = false;
+            try {               
+                Vendor::find($id)->update($data);
+                $updateOk = true;
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Do whatever you need if the query failed to execute
+                $updateOk = false;
+                return response()->json(['error' => 'SORRY! Something went wrong!']);
+            }
+            if ($updateOk) {
+                Webspice::log($this->table, $id, "Data updated successfully!");
+
+                return response()->json([
                     'status'=>200,
                     'message'=> 'Vendor Edited Successfully!'
             ]);
+            }
+        
         }
     }
 
@@ -220,11 +255,22 @@ class VendorController extends Controller
      */
     public function destroy($id)
     {
-        Vendor::where('id', $id)->update(['status' => -1]);
-
-        return response()->json([
-            'status'=>200,
-            'message'=>'The vendor has been removed!',
-        ]);
+        $id = Crypt::decryptString($id);
+        $softDelOk = false;
+        try {
+            Vendor::where('id', $id)->update(['status' => -1]);
+            $softDelOk = true;
+        } catch (\Illuminate\Database\QueryException $e) {
+            $softDelOk = false;
+            return response()->json(['error' => 'SORRY! Something went wrong!']);
+        }
+        if ($softDelOk) {
+            // log
+            Webspice::log($this->table, $id, "Data soft-deleted successfully!");
+            return response()->json([
+                'status'=>200,
+                'message'=>'The vendor has been removed!',
+            ]);
+        }
     }
 }
